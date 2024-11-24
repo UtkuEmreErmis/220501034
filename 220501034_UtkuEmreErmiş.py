@@ -1,98 +1,176 @@
-import time
+import tkinter as tk
+import random
 
 
-def menu():
-    while True:
-        print("\n--- METİN İŞLEME MENÜSÜ ---")
-        print("1 - Metinde verilen kelimelerin harflerini alt alta yazdırma")
-        print("2 - Metnin tamamen ve kelime kelime tersini bulma")
-        print("3 - Tüm 'a' harflerini 'A' ile değiştirme")
-        print("4 - Metindeki kelimeleri ayrı ayrı yazdırma")
-        print("5 - Metindeki kelimeleri yeniden birleştirme")
-        print("6 - Metindeki ünlü harflerin sayısını bulma")
-        print("7 - Yazı yazma hızını hesaplama")
-        print("0 - Çıkış")
+class BouncingBallsApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Bouncing Balls")
+        self.canvas = tk.Canvas(root, width=600, height=400, bg="white")
+        self.canvas.pack()
 
-        choice = input("Seçiminizi yapın: ")
-        if choice == '0':
-            print("Çıkış yapılıyor...")
-            break
-        elif choice in map(str, range(1, 8)):
-            text = input("Metni girin: ")
-            if choice == '1':
-                list_characters(text)
-            elif choice == '2':
-                reverse_text(text)
-            elif choice == '3':
-                replace_a_with_A(text)
-            elif choice == '4':
-                list_words(text)
-            elif choice == '5':
-                join_words(text)
-            elif choice == '6':
-                count_vowels(text)
-            elif choice == '7':
-                calculate_typing_speed(text)
-        else:
-            print("Geçersiz seçim. Lütfen tekrar deneyin.")
+        # Kullanıcı seçenekleri
+        self.size_var = tk.IntVar(value=20)  # Varsayılan boyut
+        self.color_var = tk.StringVar(value="red")  # Varsayılan renk
+
+        # Kontrol paneli
+        control_frame = tk.Frame(root)
+        control_frame.pack()
+
+        # Boyut Seçenekleri (Örnek görsellerle)
+        tk.Label(control_frame, text="Boyut:").pack(side="left")
+        for size in [20, 30, 40]:
+            frame = tk.Frame(control_frame)
+            frame.pack(side="left", padx=5)
+            # Görseli çiz
+            canvas = tk.Canvas(frame, width=50, height=50, bg="white", highlightthickness=0)
+            canvas.pack()
+            canvas.create_oval(25 - size // 2, 25 - size // 2, 25 + size // 2, 25 + size // 2, fill="gray")
+            # Seçim düğmesi
+            button = tk.Radiobutton(frame, variable=self.size_var, value=size, text=f"{size}px", command=self.update_preview)
+            button.pack()
+
+        # Renk Seçenekleri (Renk kutuları ile)
+        tk.Label(control_frame, text="Renk:").pack(side="left")
+        for color in ["red", "green", "blue"]:
+            frame = tk.Frame(control_frame)
+            frame.pack(side="left", padx=5)
+            # Görseli çiz
+            canvas = tk.Canvas(frame, width=50, height=50, bg="white", highlightthickness=0)
+            canvas.pack()
+            canvas.create_oval(10, 10, 40, 40, fill=color)
+            # Seçim düğmesi
+            button = tk.Radiobutton(frame, variable=self.color_var, value=color, text=color.capitalize(), command=self.update_preview)
+            button.pack()
+
+        # Şekil Ekleme ve Hareket Düğmeleri
+        self.add_shape_btn = tk.Button(control_frame, text="Şekil Ekle", command=self.enable_shape_placement)
+        self.add_shape_btn.pack(side="left", padx=5)
+
+        self.start_btn = tk.Button(control_frame, text="Start", command=self.start_animation)
+        self.start_btn.pack(side="left", padx=5)
+
+        self.stop_btn = tk.Button(control_frame, text="Stop", command=self.stop_animation)
+        self.stop_btn.pack(side="left", padx=5)
+
+        self.reset_btn = tk.Button(control_frame, text="Reset", command=self.reset_canvas)
+        self.reset_btn.pack(side="left", padx=5)
+
+        self.speed_up_btn = tk.Button(control_frame, text="Speed Up", command=self.speed_up)
+        self.speed_up_btn.pack(side="left", padx=5)
+
+        # Toplar ve hareket durumu
+        self.balls = []
+        self.running = False
+        self.speed_multiplier = 1
+        self.placing_shape = False  # Şekil ekleme modu
+        self.preview_id = None  # Hayalet şekil ID'si
+
+    def enable_shape_placement(self):
+        """Kullanıcının şekli yerleştirmek için Canvas'a tıklamasını sağlar."""
+        self.placing_shape = True
+        self.canvas.bind("<Motion>", self.show_preview)
+        self.canvas.bind("<Button-1>", self.add_ball)
+
+    def show_preview(self, event):
+        """Fare hareket ederken hayalet şekli gösterir."""
+        size = self.size_var.get()
+        color = self.color_var.get()
+
+        # Önizleme şekli daha önce varsa, kaldır
+        if self.preview_id:
+            self.canvas.delete(self.preview_id)
+
+        # Yeni önizleme şekli oluştur
+        self.preview_id = self.canvas.create_oval(
+            event.x - size, event.y - size, event.x + size, event.y + size,
+            outline=color, dash=(4, 4)  # Kesikli çizgi ile hayalet şekil
+        )
+
+    def add_ball(self, event):
+        """Kullanıcının seçtiği konuma bir top ekler."""
+        if not self.placing_shape:
+            return
+
+        size = self.size_var.get()
+        color = self.color_var.get()
+        x, y = event.x, event.y
+
+        dx = random.choice([-2, 2])
+        dy = random.choice([-2, 2])
+
+        # Gerçek top ekle
+        ball = {
+            "id": self.canvas.create_oval(
+                x - size, y - size, x + size, y + size, fill=color
+            ),
+            "dx": dx,
+            "dy": dy,
+            "size": size,
+        }
+        self.balls.append(ball)
+
+        # Hayalet şekli kaldır ve fare hareketlerini takip etmeyi durdur
+        if self.preview_id:
+            self.canvas.delete(self.preview_id)
+        self.preview_id = None
+        self.placing_shape = False
+        self.canvas.unbind("<Motion>")
+        self.canvas.unbind("<Button-1>")
+
+    def update_preview(self):
+        """Seçilen boyut ve renk değiştikçe önizlemeyi günceller."""
+        if self.preview_id:
+            # Önizleme şekli varsa güncelle
+            size = self.size_var.get()
+            color = self.color_var.get()
+            self.canvas.itemconfig(self.preview_id, outline=color)
+            x1, y1, x2, y2 = self.canvas.coords(self.preview_id)
+            cx, cy = (x1 + x2) / 2, (y1 + y2) / 2  # Merkez koordinatlarını hesapla
+            self.canvas.coords(self.preview_id, cx - size, cy - size, cx + size, cy + size)
+
+    def update_positions(self):
+        for ball in self.balls:
+            x1, y1, x2, y2 = self.canvas.coords(ball["id"])
+            dx, dy = ball["dx"] * self.speed_multiplier, ball["dy"] * self.speed_multiplier
+
+            # Kenar çarpma kontrolü
+            if x1 + dx < 0 or x2 + dx > 600:
+                ball["dx"] = -ball["dx"]
+            if y1 + dy < 0 or y2 + dy > 400:
+                ball["dy"] = -ball["dy"]
+
+            # Topu hareket ettir
+            self.canvas.move(ball["id"], ball["dx"] * self.speed_multiplier, ball["dy"] * self.speed_multiplier)
+
+    def start_animation(self):
+        if not self.running:
+            self.running = True
+            self.animate()
+
+    def stop_animation(self):
+        self.running = False
+
+    def reset_canvas(self):
+        self.running = False
+        for ball in self.balls:
+            self.canvas.delete(ball["id"])
+        self.balls = []
+        self.speed_multiplier = 1
+        if self.preview_id:
+            self.canvas.delete(self.preview_id)
+        self.preview_id = None
+
+    def speed_up(self):
+        self.speed_multiplier += 1
+
+    def animate(self):
+        if self.running:
+            self.update_positions()
+            self.root.after(20, self.animate)  # Her 20ms'de bir güncelle
 
 
-def list_characters(text):
-    print("\n--- Harfleri Alt Alta Yazdırma ---")
-    for word in text.split():
-        for char in word:
-            print(char)
-        print()  # Her kelime arasında bir satır boşluk bırakmak için
-
-
-def reverse_text(text):
-    print("\n--- Metnin Tersini Alma ---")
-    print("Orjinal Metin:", text)
-    print("Tamamen Ters:", text[::-1])
-    reversed_words = ' '.join(word[::-1] for word in text.split())
-    print("Kelime Kelime Ters:", reversed_words)
-
-
-def replace_a_with_A(text):
-    print("\n--- 'a' Harflerini 'A' ile Değiştirme ---")
-    replaced_text = text.replace('a', 'A').replace('A', 'A')  # Küçük ve büyük harf için
-    print("Yeni Metin:", replaced_text)
-
-
-def list_words(text):
-    print("\n--- Kelimeleri Liste Şeklinde Gösterme ---")
-    words = text.split()
-    print("Kelimeler Listesi:", words)
-
-
-def join_words(text):
-    print("\n--- Kelimeleri Birleştirme ---")
-    words = text.split()
-    joined_text = ''.join(words)
-    print("Birleştirilmiş Metin:", joined_text)
-
-
-def count_vowels(text):
-    vowels = "aeıioöuüAEIİOÖUÜ"
-    count = sum(1 for char in text if char in vowels)
-    print("\n--- Ünlü Harf Sayısı ---")
-    print("Ünlü harf sayısı:", count)
-
-
-def calculate_typing_speed(text):
-    print("\n--- Yazma Hızı Hesaplama ---")
-    input("Başlamak için Enter tuşuna basın...")
-    start_time = time.time()
-    user_input = input("Metni tekrar yazın: ")
-    end_time = time.time()
-
-    time_taken = end_time - start_time
-    char_count = len(user_input)
-    speed = char_count / time_taken if time_taken > 0 else 0
-
-    print(f"\nYazma süresi: {time_taken:.2f} saniye")
-    print(f"Saniye başına yazılan harf sayısı: {speed:.2f}")
-
-
-# Menü başlatma
-menu()
+# Uygulamayı başlat
+root = tk.Tk()
+app = BouncingBallsApp(root)
+root.mainloop()
